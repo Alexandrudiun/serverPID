@@ -31,9 +31,15 @@ async function addPlayerToAvailableGameSession(userId) {
 
             await newGameSession.save();
             
+            // Transform the response to use id instead of _id
+            const sessionObj = newGameSession.toObject();
+            sessionObj.id = sessionObj._id.toString();
+            delete sessionObj._id;
+            delete sessionObj.__v;
+            
             return {
                 message: 'New game session created successfully',
-                gameSession: newGameSession
+                gameSession: sessionObj
             };
         }
 
@@ -58,9 +64,15 @@ async function addPlayerToAvailableGameSession(userId) {
         // Save the updated session
         await availableSession.save();
 
+        // Transform the response to use id instead of _id
+        const sessionObj = availableSession.toObject();
+        sessionObj.id = sessionObj._id.toString();
+        delete sessionObj._id;
+        delete sessionObj.__v;
+
         return {
             message: 'Player added to game session successfully',
-            gameSession: availableSession
+            gameSession: sessionObj
         };
     } catch (error) {
         console.error('Error adding player to game session:', error);

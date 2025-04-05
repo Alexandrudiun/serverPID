@@ -426,6 +426,25 @@ router.post("/gamesessions/:id/abandon", async (req, res) => {
     }
 });
 
+router.post('/reset', async (req, res) => {
+    try {
+        // Delete all game sessions
+        await GameSession.deleteMany({});
+        
+        // Delete all users
+        await User.deleteMany({});
+        
+        res.status(200).json({ 
+            message: 'Database reset successful. All data has been deleted.' 
+        });
+    } catch (error) {
+        console.error('Error resetting database:', error);
+        res.status(500).json({ 
+            message: 'Error resetting database', 
+            error: error.message 
+        });
+    }
+});
 
 router.post('/addplayertogamesession', async (req, res) => {
     try {

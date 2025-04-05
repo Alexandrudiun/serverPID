@@ -30,6 +30,8 @@ app.use((err, req, res, next) => {
 // Use routes
 app.use('/', routes);
 
+
+
 app.get('/', (req, res) => {
     res.send('Welcome to the home page!');
 });
