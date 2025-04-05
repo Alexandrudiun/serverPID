@@ -1,4 +1,3 @@
-
 import { User, GameSession } from './models.js';
 
 async function addPlayerToAvailableGameSession(userId) {
@@ -15,8 +14,27 @@ async function addPlayerToAvailableGameSession(userId) {
             status: 'waiting'
         });
 
+        // If no available session is found, create a new one
         if (!availableSession) {
-            throw new Error('No available game sessions');
+            console.log('No available session found, creating a new one');
+            const newGameSession = new GameSession({
+                player1: userId,
+                player2: null,
+                status: 'waiting',
+                createdAt: new Date(),
+                currentRound: 1,
+                scores: {
+                    player1: 0,
+                    player2: 0
+                }
+            });
+
+            await newGameSession.save();
+            
+            return {
+                message: 'New game session created successfully',
+                gameSession: newGameSession
+            };
         }
 
         // Add the player to the session
@@ -26,6 +44,15 @@ async function addPlayerToAvailableGameSession(userId) {
             availableSession.player2 = userId;
             availableSession.status = 'active'; // Activate the session if both players are present
             availableSession.startedAt = new Date();
+            
+            // Initialize first round
+            availableSession.rounds.push({
+                player1Move: null,
+                player2Move: null,
+                winner: null,
+                roundNumber: 1,
+                timestamp: new Date()
+            });
         }
 
         // Save the updated session
