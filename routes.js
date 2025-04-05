@@ -163,8 +163,7 @@ router.get("/gamesessions", async (req, res) => {
         const gameSessions = await GameSession.find()
             .populate('player1', 'email')
             .populate('player2', 'email')
-            .populate('winner', 'email')
-            .populate('currentTurn', 'email');
+            .populate('winner', 'email');
         
         res.status(200).json(gameSessions);
     } catch (error) {
@@ -179,8 +178,7 @@ router.get("/gamesessions/:id", async (req, res) => {
         const gameSession = await GameSession.findById(req.params.id)
             .populate('player1', 'email')
             .populate('player2', 'email')
-            .populate('winner', 'email')
-            .populate('currentTurn', 'email');
+            .populate('winner', 'email');
         
         if (!gameSession) {
             return res.status(404).json({ message: 'Game session not found' });
@@ -206,8 +204,7 @@ router.get("/usergamesessions/:userId", async (req, res) => {
             status: { $in: ['waiting', 'active'] }
         })
         .populate('player1', 'email')
-        .populate('player2', 'email')
-        .populate('currentTurn', 'email');
+        .populate('player2', 'email');
         
         res.status(200).json(gameSessions);
     } catch (error) {
