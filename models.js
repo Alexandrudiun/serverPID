@@ -21,4 +21,69 @@ userSchema.pre('save', async function(next) {
   }
 });
 
+// Game Session Schema for Rock Paper Scissors
+const gameSessionSchema = new mongoose.Schema({
+  player1: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  player2: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    default: null 
+  },
+  status: { 
+    type: String, 
+    enum: ['waiting', 'active', 'completed', 'abandoned'], 
+    default: 'waiting' 
+  },
+  winner: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    default: null 
+  },
+  rounds: [{
+    player1Move: { 
+      type: String, 
+      enum: ['rock', 'paper', 'scissors', null],
+      default: null 
+    },
+    player2Move: { 
+      type: String, 
+      enum: ['rock', 'paper', 'scissors', null],
+      default: null 
+    },
+    winner: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User', 
+      default: null 
+    },
+    roundNumber: Number,
+    timestamp: { type: Date, default: Date.now }
+  }],
+  currentRound: {
+    type: Number,
+    default: 1
+  },
+  maxRounds: {
+    type: Number,
+    default: 3  // Best of 3 by default
+  },
+  scores: {
+    player1: {
+      type: Number,
+      default: 0
+    },
+    player2: {
+      type: Number,
+      default: 0
+    }
+  },
+  createdAt: { type: Date, default: Date.now },
+  startedAt: { type: Date, default: null },
+  endedAt: { type: Date, default: null }
+});
+
 export const User = mongoose.model('User', userSchema);
+export const GameSession = mongoose.model('GameSession', gameSessionSchema);

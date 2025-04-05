@@ -16,7 +16,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
-app.use(json({ limit: '10kb' }));
+app.use(json({ limit: '1000kb' }));
 app.use(urlencoded({ extended: true }));
 
 // Error handling middleware for JSON parsing errors
