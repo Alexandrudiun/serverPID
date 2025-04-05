@@ -1,8 +1,20 @@
-const express = require('express');
+import express, { json, urlencoded } from 'express';
+import mongoose from 'mongoose';
 
 const app = express();
-const port = 3000;
+const port = 8081;
 
+// Middleware
+app.use(json());
+app.use(urlencoded({ extended: true }));
+
+// MongoDB connection
+const mongoURI = 'mongodb://localhost:27017/mydatabase'; // Replace 'mydatabase' with your database name
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// Routes
 app.post('/signup', (req, res) => {
     const { username, password } = req.body;
 
@@ -12,8 +24,8 @@ app.post('/signup', (req, res) => {
     } else {
         res.status(400).json({ message: 'Invalid input' });
     }
-}
-);
+});
+
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -23,15 +35,13 @@ app.post('/login', (req, res) => {
     } else {
         res.status(401).json({ message: 'Invalid credentials' });
     }
-}
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+});
 
 app.get('/', (req, res) => {
     res.send('Welcome to the home page!');
 });
 
+// Start the server
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
