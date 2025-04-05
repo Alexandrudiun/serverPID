@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import { User, GameSession } from './models.js';
 import addPlayerToAvailableGameSession from './functionsGameplay.js';
+import genAI from './geminiClient.js'; // Import the geminiClient
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
@@ -457,6 +458,44 @@ router.post('/addplayertogamesession', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
+router.post('/generate-words', async (req, res) => {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  
+      const prompt = `
+      You're the System in a competitive game called "Words of Power".
+      There are 3 types of words:
+      - Low-cost Risky Word
+      - Medium-cost Balanced Word
+      - High-cost Powerful Word
+  
+      Your goal is to:
+      1. Choose a word that players must try to defeat
+      2. Generate 3 suggested words that players can choose from: one risky, one balanced, one powerful
+      3. Assign a cost to each (1, 3, and 7 points)
+  
+      Format the result as JSON:
+      {
+        "system_word": "Oblivion",
+        "suggested_words": [
+          { "word": "Flash", "type": "risky", "cost": 1 },
+          { "word": "Barrier", "type": "balanced", "cost": 3 },
+          { "word": "Judgement", "type": "powerful", "cost": 7 }
+        ]
+      }
+      `;
+  
+      const result = await model.generateContent(prompt);
+      const response = await result.response.text();
+      const json = JSON.parse(response);
+  
+      res.json(json);
+    } catch (error) {
+      console.error('Error generating words:', error);
+      res.status(500).json({ error: 'Failed to generate words' });
+    }
+  });
 
 
 export default router;
