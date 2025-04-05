@@ -23,6 +23,10 @@ userSchema.pre('save', async function(next) {
 
 // Game Session Schema for Rock Paper Scissors
 const gameSessionSchema = new mongoose.Schema({
+    id: {
+        type: String,
+        unique: true
+    },
   player1: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
@@ -83,6 +87,28 @@ const gameSessionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   startedAt: { type: Date, default: null },
   endedAt: { type: Date, default: null }
+});
+
+// Pre-save hook to set id field equal to _id
+gameSessionSchema.pre('save', function(next) {
+    if (!this.id) {
+        this.id = this._id.toString();
+    }
+    next();
+});
+
+// Create a virtual property to access id as a string
+gameSessionSchema.virtual('sessionId').get(function() {
+    return this._id.toString();
+});
+
+// Ensure virtuals are included when converting to JSON
+gameSessionSchema.set('toJSON', {
+    virtuals: true,
+    transform: (doc, ret) => {
+        ret.id = ret._id.toString();
+        return ret;
+    }
 });
 
 export const User = mongoose.model('User', userSchema);
