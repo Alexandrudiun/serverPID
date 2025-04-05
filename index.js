@@ -1,11 +1,18 @@
 import express, { json, urlencoded } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import routes from './routes.js';
 
 dotenv.config(); // Load environment variables
 
+// MongoDB connection
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/usersDB')
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
@@ -20,25 +27,13 @@ app.use((err, req, res, next) => {
     next(err);
 });
 
-app.post('/login', (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        // Simulate user login logic
-        if (email === 'test' && password === 'test') {
-            res.status(200).json({ message: 'Login successful' });
-        } else {
-            res.status(401).json({ message: 'Invalid email or password' });
-        }
-    } catch (error) {
-        res.status(500).json({ message: 'Something went wrong. Please try again.', error: error.message });
-    }
-});
+// Use routes
+app.use('/', routes);
 
 app.get('/', (req, res) => {
-        res.send('Welcome to the home page!');
+    res.send('Welcome to the home page!');
 });
 
 app.listen(port, () => {
-        console.log(`Server is running on http://localhost:${port}`);
+    console.log(`Server is running on http://localhost:${port}`);
 });
