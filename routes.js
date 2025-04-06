@@ -176,10 +176,7 @@ router.get("/gamesessions", async (req, res) => {
 // Get a specific game session
 router.get("/gamesessions/:id", async (req, res) => {
     try {
-        const gameSession = await GameSession.findById(req.params.id)
-            .populate('player1', 'email')
-            .populate('player2', 'email')
-            .populate('winner', 'email');
+        const gameSession = await GameSession.findById(req.params.id);
         
         if (!gameSession) {
             return res.status(404).json({ message: 'Game session not found' });
