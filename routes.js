@@ -213,19 +213,23 @@ router.get("/usergamesessions/:userId", async (req, res) => {
         res.status(500).json({ message: 'Error fetching user game sessions', error: error.message });
     }
 });
-
-// Make a move in rock-paper-scissors
-router.post("/gamesessions/:id/move", async (req, res) => {
+// Evaluate a player's word against a system word (both provided in request)
+router.post("/evaluate-round/:id", async (req, res) => {
     try {
-        const { userId, move } = req.body;
+        const { userId, word, systemWord } = req.body;
         const { id } = req.params;
 
-        if (!userId || !move) {
-            return res.status(400).json({ message: 'User ID and move are required' });
+        if (!userId || !word || !systemWord) {
+            return res.status(400).json({ message: 'User ID, player word, and system word are all required' });
         }
 
-        if (!['rock', 'paper', 'scissors'].includes(move)) {
-            return res.status(400).json({ message: 'Invalid move. Choose rock, paper, or scissors' });
+        // Basic validation - non-empty strings
+        if (typeof word !== 'string' || word.trim().length === 0) {
+            return res.status(400).json({ message: 'Invalid word. Please provide a non-empty word.' });
+        }
+        
+        if (typeof systemWord !== 'string' || systemWord.trim().length === 0) {
+            return res.status(400).json({ message: 'Invalid system word. Please provide a non-empty word.' });
         }
 
         const gameSession = await GameSession.findById(id);
@@ -245,136 +249,200 @@ router.post("/gamesessions/:id/move", async (req, res) => {
         // Find the current round
         const currentRound = gameSession.rounds.find(round => round.roundNumber === gameSession.currentRound);
         
-        // If round doesn't exist yet, create it
+        // If round doesn't exist yet, create it with the provided system word
         if (!currentRound) {
             gameSession.rounds.push({
+                systemWord: systemWord,
                 player1Move: null,
                 player2Move: null,
                 winner: null,
+                explanation: null,
                 roundNumber: gameSession.currentRound,
                 timestamp: new Date()
+            });
+        } else if (!currentRound.systemWord) {
+            // Update existing round with the provided system word
+            currentRound.systemWord = systemWord;
+        } else if (currentRound.systemWord !== systemWord) {
+            // System word already exists but is different
+            return res.status(400).json({ 
+                message: 'A different system word is already set for this round',
+                existingSystemWord: currentRound.systemWord 
             });
         }
         
         // Get the current round index
         const roundIndex = gameSession.rounds.findIndex(round => round.roundNumber === gameSession.currentRound);
         
-        // Record the player's move
+        // Record the player's word
         const isPlayer1 = gameSession.player1.toString() === userId;
         
         if (isPlayer1) {
             if (gameSession.rounds[roundIndex].player1Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
-            gameSession.rounds[roundIndex].player1Move = move;
+            gameSession.rounds[roundIndex].player1Move = word;
         } else {
             if (gameSession.rounds[roundIndex].player2Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
-            gameSession.rounds[roundIndex].player2Move = move;
+            gameSession.rounds[roundIndex].player2Move = word;
         }
         
-        // If both players made their moves, determine the round winner
-        if (gameSession.rounds[roundIndex].player1Move && gameSession.rounds[roundIndex].player2Move) {
-            const player1Move = gameSession.rounds[roundIndex].player1Move;
-            const player2Move = gameSession.rounds[roundIndex].player2Move;
+        // Get the current player's word
+        const playerWord = isPlayer1 ? 
+            gameSession.rounds[roundIndex].player1Move : 
+            gameSession.rounds[roundIndex].player2Move;
+        
+        // Evaluate the player's word against the system word
+        let roundWinner = null;
+        let explanation = '';
+        
+        try {
+            // Use Gemini AI to compare the words semantically
+            const prompt = `You are judging a "Words of Power" battle.
             
-            // Determine round winner
-            let roundWinner = null;
+            System word: "${systemWord}"
+            Player word: "${playerWord}"
             
-            if (player1Move === player2Move) {
-                // It's a tie, no winner for this round
-                roundWinner = null;
-            } else if (
-                (player1Move === 'rock' && player2Move === 'scissors') ||
-                (player1Move === 'paper' && player2Move === 'rock') ||
-                (player1Move === 'scissors' && player2Move === 'paper')
-            ) {
-                // Player 1 wins
-                roundWinner = gameSession.player1;
-                gameSession.scores.player1 += 1;
+            Determine if the player's word would win against the system word based on:
+            1. Power level (which concept is more powerful)
+            2. Elemental relationship (like fire beats ice)
+            3. Logical dominance (like "shield" might beat "arrow")
+            
+            First, decide if the player wins, loses, or ties.
+            Then provide a brief explanation (1-2 sentences).
+            
+            Return your answer in this exact format:
+            RESULT: [win/lose/tie]
+            EXPLANATION: [Your explanation]`;
+            
+            const result = await genAI.generateContent(prompt);
+            const response = result.response.text().trim();
+            
+            // Parse the response
+            const resultMatch = response.match(/RESULT:\s*(win|lose|tie)/i);
+            const explanationMatch = response.match(/EXPLANATION:\s*(.+)$/is);
+            
+            if (resultMatch && explanationMatch) {
+                const battleResult = resultMatch[1].toLowerCase();
+                explanation = explanationMatch[1].trim();
+                
+                // Update round with result
+                if (battleResult === 'win') {
+                    roundWinner = isPlayer1 ? gameSession.player1 : gameSession.player2;
+                    if (isPlayer1) {
+                        gameSession.scores.player1 += 1;
+                    } else {
+                        gameSession.scores.player2 += 1;
+                    }
+                }
+                // If result is 'lose' or 'tie', no winner is assigned
             } else {
-                // Player 2 wins
-                roundWinner = gameSession.player2;
-                gameSession.scores.player2 += 1;
+                // Fallback if parsing fails
+                const randomWin = Math.random() > 0.6; // 40% chance to win
+                if (randomWin) {
+                    roundWinner = isPlayer1 ? gameSession.player1 : gameSession.player2;
+                    if (isPlayer1) {
+                        gameSession.scores.player1 += 1;
+                    } else {
+                        gameSession.scores.player2 += 1;
+                    }
+                    explanation = `The word "${playerWord}" prevails over "${systemWord}" through mystical forces.`;
+                } else {
+                    explanation = `The word "${systemWord}" proves stronger than "${playerWord}" in this magical contest.`;
+                }
             }
             
             gameSession.rounds[roundIndex].winner = roundWinner;
+            gameSession.rounds[roundIndex].explanation = explanation;
             
-            // Check if the game should end
-            const player1Score = gameSession.scores.player1;
-            const player2Score = gameSession.scores.player2;
-            const maxRounds = gameSession.maxRounds;
-            const totalPlayed = player1Score + player2Score;
-            
-            // Game ends if one player has more than half of max rounds
-            // or if all rounds have been played
-            if (player1Score > maxRounds / 2 || player2Score > maxRounds / 2 || totalPlayed >= maxRounds) {
-                gameSession.status = 'completed';
-                gameSession.endedAt = new Date();
-                
-                // Determine the game winner
-                if (player1Score > player2Score) {
-                    gameSession.winner = gameSession.player1;
-                } else if (player2Score > player1Score) {
-                    gameSession.winner = gameSession.player2;
+        } catch (error) {
+            console.error('Error evaluating words:', error);
+            // Fallback evaluation
+            const randomWin = Math.random() > 0.6; // 40% chance to win
+            if (randomWin) {
+                roundWinner = isPlayer1 ? gameSession.player1 : gameSession.player2;
+                if (isPlayer1) {
+                    gameSession.scores.player1 += 1;
+                } else {
+                    gameSession.scores.player2 += 1;
                 }
-                // If scores are equal, winner remains null (it's a tie)
+                explanation = `The word "${playerWord}" prevails over "${systemWord}" through mystical forces.`;
             } else {
-                // Move to the next round
-                gameSession.currentRound += 1;
-                
-                // Initialize next round
-                gameSession.rounds.push({
-                    player1Move: null,
-                    player2Move: null,
-                    winner: null,
-                    roundNumber: gameSession.currentRound,
-                    timestamp: new Date()
-                });
+                explanation = `The word "${systemWord}" proves stronger than "${playerWord}" in this magical contest.`;
             }
+            
+            gameSession.rounds[roundIndex].winner = roundWinner;
+            gameSession.rounds[roundIndex].explanation = explanation;
+        }
+        
+        // Check if the game should end
+        const playerScore = isPlayer1 ? gameSession.scores.player1 : gameSession.scores.player2;
+        const maxRounds = gameSession.maxRounds;
+        
+        // Game ends if player has completed all rounds
+        if (gameSession.currentRound >= maxRounds) {
+            gameSession.status = 'completed';
+            gameSession.endedAt = new Date();
+            
+            // Determine the game winner based on final score
+            if (isPlayer1 && gameSession.scores.player1 > maxRounds / 2) {
+                gameSession.winner = gameSession.player1;
+            } else if (!isPlayer1 && gameSession.scores.player2 > maxRounds / 2) {
+                gameSession.winner = gameSession.player2;
+            }
+        } else {
+            // Move to the next round
+            gameSession.currentRound += 1;
         }
         
         await gameSession.save();
         
         // Generate response message
-        let resultMessage = 'Move recorded';
+        let resultMessage = 'Word submitted';
         let roundResult = null;
         
-        if (gameSession.rounds[roundIndex].player1Move && gameSession.rounds[roundIndex].player2Move) {
-            if (gameSession.rounds[roundIndex].winner) {
-                const winnerIsUser = gameSession.rounds[roundIndex].winner.toString() === userId;
-                roundResult = winnerIsUser ? 'win' : 'lose';
-                resultMessage = winnerIsUser ? 'You won this round!' : 'You lost this round!';
+        if (roundWinner) {
+            const winnerIsUser = roundWinner.toString() === userId;
+            if (winnerIsUser) {
+                roundResult = 'win';
+                resultMessage = 'Your word prevailed against the system word!';
             } else {
-                roundResult = 'tie';
-                resultMessage = 'This round is a tie!';
+                roundResult = 'lose';
+                resultMessage = 'Your word was defeated by the system word!';
             }
-            
-            if (gameSession.status === 'completed') {
-                if (gameSession.winner) {
-                    const gameWinnerIsUser = gameSession.winner.toString() === userId;
-                    resultMessage += gameWinnerIsUser ? ' You won the game!' : ' You lost the game!';
-                } else {
-                    resultMessage += ' The game ended in a tie!';
-                }
+        } else {
+            roundResult = 'tie';
+            resultMessage = 'Your word matched evenly with the system word!';
+        }
+        
+        if (gameSession.status === 'completed') {
+            if (gameSession.winner && gameSession.winner.toString() === userId) {
+                resultMessage += ' You have mastered the Words of Power!';
+            } else if (gameSession.winner) {
+                resultMessage += ' You failed to master the Words of Power!';
+            } else {
+                resultMessage += ' Your journey with Words of Power has ended in balance.';
             }
         }
         
         res.status(200).json({
             message: resultMessage,
+            explanation: explanation,
             roundResult,
+            systemWord,
+            playerWord,
             currentRound: gameSession.currentRound,
             gameStatus: gameSession.status,
             scores: gameSession.scores,
             gameSession
         });
     } catch (error) {
-        console.error('Error making move:', error);
-        res.status(500).json({ message: 'Error making move', error: error.message });
+        console.error('Error evaluating words:', error);
+        res.status(500).json({ message: 'Error evaluating words', error: error.message });
     }
 });
-
 // Abandon a game
 router.post("/gamesessions/:id/abandon", async (req, res) => {
     try {

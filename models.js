@@ -20,69 +20,74 @@ userSchema.pre('save', async function(next) {
     next(error);
   }
 });
-
-// Game Session Schema for Rock Paper Scissors
+// Game Session Schema for Words of Power
 const gameSessionSchema = new mongoose.Schema({
-    id: {
-        type: String,
-        unique: true
-    },
+  id: {
+      type: String,
+      unique: true
+  },
   player1: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User', 
+      required: true 
   },
   player2: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    default: null 
-  },
-  status: { 
-    type: String, 
-    enum: ['waiting', 'active', 'completed', 'abandoned'], 
-    default: 'waiting' 
-  },
-  winner: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    default: null 
-  },
-  rounds: [{
-    player1Move: { 
-      type: String, 
-      enum: ['rock', 'paper', 'scissors', null],
-      default: null 
-    },
-    player2Move: { 
-      type: String, 
-      enum: ['rock', 'paper', 'scissors', null],
-      default: null 
-    },
-    winner: { 
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'User', 
       default: null 
-    },
-    roundNumber: Number,
-    timestamp: { type: Date, default: Date.now }
+  },
+  status: { 
+      type: String, 
+      enum: ['waiting', 'active', 'completed', 'abandoned'], 
+      default: 'waiting' 
+  },
+  winner: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User', 
+      default: null 
+  },
+  rounds: [{
+      systemWord: {
+          type: String,
+          default: null
+      },
+      player1Move: { 
+          type: String,
+          default: null 
+      },
+      player2Move: { 
+          type: String,
+          default: null 
+      },
+      winner: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: 'User', 
+          default: null 
+      },
+      explanation: {
+          type: String,
+          default: null
+      },
+      roundNumber: Number,
+      timestamp: { type: Date, default: Date.now }
   }],
   currentRound: {
-    type: Number,
-    default: 1
+      type: Number,
+      default: 1
   },
   maxRounds: {
-    type: Number,
-    default: 3  // Best of 3 by default
+      type: Number,
+      default: 3  // Best of 3 by default
   },
   scores: {
-    player1: {
-      type: Number,
-      default: 0
-    },
-    player2: {
-      type: Number,
-      default: 0
-    }
+      player1: {
+          type: Number,
+          default: 0
+      },
+      player2: {
+          type: Number,
+          default: 0
+      }
   },
   createdAt: { type: Date, default: Date.now },
   startedAt: { type: Date, default: null },
