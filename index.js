@@ -6,7 +6,7 @@ import routes from './routes.js';
 
 dotenv.config(); // Load environment variables
 
-// MongoDB connection
+// MongoDB  connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/usersDB')
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
