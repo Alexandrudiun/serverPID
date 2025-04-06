@@ -211,7 +211,6 @@ router.get("/usergamesessions/:userId", async (req, res) => {
     }
 });
 // Evaluate a player's word against a system word (both provided in request)
-// Evaluate a player's word against a system word (both provided in request)
 router.post("/evaluate-round/:id", async (req, res) => {
     try {
         const { userId, word, systemWord } = req.body;
@@ -256,9 +255,7 @@ router.post("/evaluate-round/:id", async (req, res) => {
                 winner: null,
                 explanation: null,
                 roundNumber: gameSession.currentRound,
-                timestamp: new Date(),
-                player1SubmitTime: null,
-                player2SubmitTime: null
+                timestamp: new Date()
             });
         } else if (!currentRound.systemWord) {
             // Update existing round with the provided system word
@@ -274,51 +271,23 @@ router.post("/evaluate-round/:id", async (req, res) => {
         // Get the current round index
         const roundIndex = gameSession.rounds.findIndex(round => round.roundNumber === gameSession.currentRound);
         
-        // Record the player's word and submission time
+        // Record the player's word
         const isPlayer1 = gameSession.player1.toString() === userId;
-        const currentTime = new Date();
         
         if (isPlayer1) {
             if (gameSession.rounds[roundIndex].player1Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
             gameSession.rounds[roundIndex].player1Move = word;
-            gameSession.rounds[roundIndex].player1SubmitTime = currentTime;
         } else {
             if (gameSession.rounds[roundIndex].player2Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
             gameSession.rounds[roundIndex].player2Move = word;
-            gameSession.rounds[roundIndex].player2SubmitTime = currentTime;
         }
         
-        // Check if other player has been waiting too long (15 seconds)
-        // If so, auto-submit a move for them
-        const otherPlayerSubmitted = isPlayer1 
-            ? gameSession.rounds[roundIndex].player2Move !== null
-            : gameSession.rounds[roundIndex].player1Move !== null;
-        
-        const otherPlayerSubmitTime = isPlayer1
-            ? gameSession.rounds[roundIndex].player2SubmitTime
-            : gameSession.rounds[roundIndex].player1SubmitTime;
-        
-        // Only check timeout if playing with another player (not AI/system-only game)
-        let timeoutOccurred = false;
-        if (gameSession.player2 !== null && !otherPlayerSubmitted && otherPlayerSubmitTime) {
-            const waitTime = currentTime - new Date(otherPlayerSubmitTime);
-            if (waitTime > 15000) { // 15 seconds in milliseconds
-                // Auto-submit a move for the waiting player
-                const timeoutWord = "timeout";
-                
-                if (isPlayer1) {
-                    gameSession.rounds[roundIndex].player2Move = timeoutWord;
-                } else {
-                    gameSession.rounds[roundIndex].player1Move = timeoutWord;
-                }
-                
-                timeoutOccurred = true;
-            }
-        }
+        // Check if the word is "timeout" (frontend handles the 15-second logic)
+        const timeoutOccurred = word === "timeout";
         
         // Get the current player's word
         const playerWord = isPlayer1 ? 
@@ -439,7 +408,6 @@ router.post("/evaluate-round/:id", async (req, res) => {
             (gameSession.rounds[roundIndex].player1Move !== null && 
              gameSession.rounds[roundIndex].player2Move !== null);
         
-        // FIX: Instead of incrementing by 0.5, check if we need to advance to the next round
         if (bothPlayersSubmitted) {
             // Check if the game should end
             const maxRounds = gameSession.maxRounds;
@@ -468,9 +436,7 @@ router.post("/evaluate-round/:id", async (req, res) => {
                     winner: null,
                     explanation: null,
                     roundNumber: gameSession.currentRound,
-                    timestamp: new Date(),
-                    player1SubmitTime: null,
-                    player2SubmitTime: null
+                    timestamp: new Date()
                 });
             }
         }
@@ -525,7 +491,8 @@ router.post("/evaluate-round/:id", async (req, res) => {
         console.error('Error evaluating words:', error);
         res.status(500).json({ message: 'Error evaluating words', error: error.message });
     }
-});// Abandon a game
+});
+// Abandon a game
 router.post("/gamesessions/:id/abandon", async (req, res) => {
     try {
         const { userId } = req.body;
