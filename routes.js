@@ -460,21 +460,22 @@ router.post('/addplayertogamesession', async (req, res) => {
 });
 
 router.post('/generate-words', async (req, res) => {
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-  
-      const prompt = `
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    const prompt = `
       You're the System in a competitive game called "Words of Power".
       There are 3 types of words:
       - Low-cost Risky Word
       - Medium-cost Balanced Word
       - High-cost Powerful Word
-  
+
       Your goal is to:
       1. Choose a word that players must try to defeat
       2. Generate 3 suggested words that players can choose from: one risky, one balanced, one powerful
       3. Assign a cost to each (1, 3, and 7 points)
-  
+
       Format the result as JSON:
       {
         "system_word": "Oblivion",
@@ -484,18 +485,69 @@ router.post('/generate-words', async (req, res) => {
           { "word": "Judgement", "type": "powerful", "cost": 7 }
         ]
       }
-      `;
-  
-      const result = await model.generateContent(prompt);
-      const response = await result.response.text();
-      const json = JSON.parse(response);
-  
-      res.json(json);
-    } catch (error) {
-      console.error('Error generating words:', error);
-      res.status(500).json({ error: 'Failed to generate words' });
+      
+      IMPORTANT: Return ONLY valid JSON with no extra text, markdown formatting or explanation.
+    `;
+
+    // Create request payload
+    const payload = {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ]
+    };
+
+    // Make POST request
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error fetching from API: ${response.status} ${response.statusText}`);
     }
-  });
 
+    const data = await response.json();
+    
+    // Debug the response structure to see what we're getting
+    console.log('Gemini API response:', JSON.stringify(data, null, 2));
+    
+    // Extract the generated text
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!generatedText) {
+      throw new Error('No valid generated text received from Gemini API');
+    }
 
+    // Log the raw text before parsing
+    console.log('Raw text before parsing:', generatedText);
+    
+    // Try to extract JSON from the text which might include markdown code blocks or other formatting
+    let jsonText = generatedText;
+    
+    // If the text contains markdown JSON code blocks, extract just the JSON part
+    if (generatedText.includes('```json')) {
+      jsonText = generatedText.split('```json')[1].split('```')[0].trim();
+    } else if (generatedText.includes('```')) {
+      jsonText = generatedText.split('```')[1].split('```')[0].trim();
+    }
+    
+    // Parse the extracted text as JSON
+    const jsonResult = JSON.parse(jsonText);
+    
+    // Return the parsed JSON
+    res.json(jsonResult);
+  } catch (error) {
+    console.error('Error generating words:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate words', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
 export default router;
