@@ -589,9 +589,9 @@ Each system word should represent an object, force, or concept that can be chall
 Respond in the following JSON format:
 {
   "rounds": [
-    { "round": 1, "system_word": "Shield" },
-    { "round": 2, "system_word": "Fire" },
-    { "round": 3, "system_word": "Storm" }
+    { "round": 1, "system_word": "{generate here the word1}" },
+    { "round": 2, "system_word": "{generate here the word2}" },
+    { "round": 3, "system_word": "{generate here the word3}" }
   ]
 }`;
 
