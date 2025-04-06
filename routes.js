@@ -214,6 +214,7 @@ router.get("/usergamesessions/:userId", async (req, res) => {
     }
 });
 // Evaluate a player's word against a system word (both provided in request)
+// Evaluate a player's word against a system word (both provided in request)
 router.post("/evaluate-round/:id", async (req, res) => {
     try {
         const { userId, word, systemWord } = req.body;
@@ -258,7 +259,9 @@ router.post("/evaluate-round/:id", async (req, res) => {
                 winner: null,
                 explanation: null,
                 roundNumber: gameSession.currentRound,
-                timestamp: new Date()
+                timestamp: new Date(),
+                player1SubmitTime: null,
+                player2SubmitTime: null
             });
         } else if (!currentRound.systemWord) {
             // Update existing round with the provided system word
@@ -274,19 +277,50 @@ router.post("/evaluate-round/:id", async (req, res) => {
         // Get the current round index
         const roundIndex = gameSession.rounds.findIndex(round => round.roundNumber === gameSession.currentRound);
         
-        // Record the player's word
+        // Record the player's word and submission time
         const isPlayer1 = gameSession.player1.toString() === userId;
+        const currentTime = new Date();
         
         if (isPlayer1) {
             if (gameSession.rounds[roundIndex].player1Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
             gameSession.rounds[roundIndex].player1Move = word;
+            gameSession.rounds[roundIndex].player1SubmitTime = currentTime;
         } else {
             if (gameSession.rounds[roundIndex].player2Move !== null) {
                 return res.status(400).json({ message: 'You already made a move for this round' });
             }
             gameSession.rounds[roundIndex].player2Move = word;
+            gameSession.rounds[roundIndex].player2SubmitTime = currentTime;
+        }
+        
+        // Check if other player has been waiting too long (15 seconds)
+        // If so, auto-submit a move for them
+        const otherPlayerSubmitted = isPlayer1 
+            ? gameSession.rounds[roundIndex].player2Move !== null
+            : gameSession.rounds[roundIndex].player1Move !== null;
+        
+        const otherPlayerSubmitTime = isPlayer1
+            ? gameSession.rounds[roundIndex].player2SubmitTime
+            : gameSession.rounds[roundIndex].player1SubmitTime;
+        
+        // Only check timeout if playing with another player (not AI/system-only game)
+        let timeoutOccurred = false;
+        if (gameSession.player2 !== null && !otherPlayerSubmitted && otherPlayerSubmitTime) {
+            const waitTime = currentTime - new Date(otherPlayerSubmitTime);
+            if (waitTime > 15000) { // 15 seconds in milliseconds
+                // Auto-submit a move for the waiting player
+                const timeoutWord = "timeout";
+                
+                if (isPlayer1) {
+                    gameSession.rounds[roundIndex].player2Move = timeoutWord;
+                } else {
+                    gameSession.rounds[roundIndex].player1Move = timeoutWord;
+                }
+                
+                timeoutOccurred = true;
+            }
         }
         
         // Get the current player's word
@@ -377,24 +411,46 @@ router.post("/evaluate-round/:id", async (req, res) => {
             gameSession.rounds[roundIndex].explanation = explanation;
         }
         
-        // Check if the game should end
-        const playerScore = isPlayer1 ? gameSession.scores.player1 : gameSession.scores.player2;
-        const maxRounds = gameSession.maxRounds;
+        // Check if both players have submitted their words or if it's a timeout
+        const bothPlayersSubmitted = 
+            (gameSession.player2 === null) || // Single player mode
+            (gameSession.rounds[roundIndex].player1Move !== null && 
+             gameSession.rounds[roundIndex].player2Move !== null);
         
-        // Game ends if player has completed all rounds
-        if (gameSession.currentRound >= maxRounds) {
-            gameSession.status = 'completed';
-            gameSession.endedAt = new Date();
+        // FIX: Instead of incrementing by 0.5, check if we need to advance to the next round
+        if (bothPlayersSubmitted) {
+            // Check if the game should end
+            const maxRounds = gameSession.maxRounds;
             
-            // Determine the game winner based on final score
-            if (isPlayer1 && gameSession.scores.player1 > maxRounds / 2) {
-                gameSession.winner = gameSession.player1;
-            } else if (!isPlayer1 && gameSession.scores.player2 > maxRounds / 2) {
-                gameSession.winner = gameSession.player2;
+            // Game ends if we've reached max rounds
+            if (gameSession.currentRound >= maxRounds) {
+                gameSession.status = 'completed';
+                gameSession.endedAt = new Date();
+                
+                // Determine the game winner based on final score
+                if (gameSession.scores.player1 > gameSession.scores.player2) {
+                    gameSession.winner = gameSession.player1;
+                } else if (gameSession.scores.player2 > gameSession.scores.player1) {
+                    gameSession.winner = gameSession.player2;
+                }
+                // If scores are equal, winner remains null (it's a tie)
+            } else {
+                // Advance to next round
+                gameSession.currentRound += 1;
+                
+                // Initialize next round
+                gameSession.rounds.push({
+                    systemWord: null,
+                    player1Move: null,
+                    player2Move: null,
+                    winner: null,
+                    explanation: null,
+                    roundNumber: gameSession.currentRound,
+                    timestamp: new Date(),
+                    player1SubmitTime: null,
+                    player2SubmitTime: null
+                });
             }
-        } else {
-            // Move to the next round
-            gameSession.currentRound += 1;
         }
         
         await gameSession.save();
@@ -417,6 +473,10 @@ router.post("/evaluate-round/:id", async (req, res) => {
             resultMessage = 'Your word matched evenly with the system word!';
         }
         
+        if (timeoutOccurred) {
+            resultMessage += ' The other player took too long to respond and forfeited this round.';
+        }
+        
         if (gameSession.status === 'completed') {
             if (gameSession.winner && gameSession.winner.toString() === userId) {
                 resultMessage += ' You have mastered the Words of Power!';
@@ -433,6 +493,7 @@ router.post("/evaluate-round/:id", async (req, res) => {
             roundResult,
             systemWord,
             playerWord,
+            timeoutOccurred,
             currentRound: gameSession.currentRound,
             gameStatus: gameSession.status,
             scores: gameSession.scores,
@@ -442,8 +503,7 @@ router.post("/evaluate-round/:id", async (req, res) => {
         console.error('Error evaluating words:', error);
         res.status(500).json({ message: 'Error evaluating words', error: error.message });
     }
-});
-// Abandon a game
+});// Abandon a game
 router.post("/gamesessions/:id/abandon", async (req, res) => {
     try {
         const { userId } = req.body;

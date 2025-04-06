@@ -47,30 +47,38 @@ const gameSessionSchema = new mongoose.Schema({
       default: null 
   },
   rounds: [{
-      systemWord: {
-          type: String,
-          default: null
-      },
-      player1Move: { 
-          type: String,
-          default: null 
-      },
-      player2Move: { 
-          type: String,
-          default: null 
-      },
-      winner: { 
-          type: mongoose.Schema.Types.ObjectId, 
-          ref: 'User', 
-          default: null 
-      },
-      explanation: {
-          type: String,
-          default: null
-      },
-      roundNumber: Number,
-      timestamp: { type: Date, default: Date.now }
-  }],
+    systemWord: {
+        type: String,
+        default: null
+    },
+    player1Move: { 
+        type: String,
+        default: null 
+    },
+    player2Move: { 
+        type: String,
+        default: null 
+    },
+    winner: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User', 
+        default: null 
+    },
+    explanation: {
+        type: String,
+        default: null
+    },
+    player1SubmitTime: {
+        type: Date,
+        default: null
+    },
+    player2SubmitTime: {
+        type: Date, 
+        default: null
+    },
+    roundNumber: Number,
+    timestamp: { type: Date, default: Date.now }
+}],
   currentRound: {
       type: Number,
       default: 1
