@@ -85,7 +85,7 @@ const gameSessionSchema = new mongoose.Schema({
   },
   maxRounds: {
       type: Number,
-      default: 3  // Best of 3 by default
+      default: 1  // Single round instead of best of 3
   },
   scores: {
       player1: {
