@@ -585,13 +585,13 @@ router.post('/generate-words', async (req, res) => {
 Your task is to generate 3 unique, powerful system words for 3 consecutive battle rounds.
 
 Each system word should represent an object, force, or concept that can be challenged creatively.
-
-Respond in the following JSON format:
+Use only one word.
+Respond in the following example JSON format:
 {
   "rounds": [
-    { "round": 1, "system_word": "{generate here the word1}" },
-    { "round": 2, "system_word": "{generate here the word2}" },
-    { "round": 3, "system_word": "{generate here the word3}" }
+     { "round": 1, "system_word": "Shield" },
+     { "round": 2, "system_word": "Fire" },
+     { "round": 3, "system_word": "Storm" }
   ]
 }`;
 
