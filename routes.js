@@ -333,9 +333,12 @@ router.post("/evaluate-round/:id", async (req, res) => {
         let explanation = '';
         
         try {
-            // Use Gemini AI to compare the words semantically
-            const prompt = `You are judging a "Words of Power" battle.
+            // Use direct Gemini AI API call to compare the words semantically
+            const apiKey = process.env.GEMINI_API_KEY;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             
+            const prompt = `You are judging a "Words of Power" battle.
+                    
             System word: "${systemWord}"
             Player word: "${playerWord}"
             
@@ -351,12 +354,34 @@ router.post("/evaluate-round/:id", async (req, res) => {
             RESULT: [win/lose/tie]
             EXPLANATION: [Your explanation]`;
             
-            const result = await genAI.generateContent(prompt);
-            const response = result.response.text().trim();
+            // Create request payload
+            const payload = {
+              contents: [
+                {
+                  parts: [{ text: prompt }]
+                }
+              ]
+            };
+        
+            // Make POST request
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Error fetching from API: ${response.status} ${response.statusText}`);
+            }
+        
+            const data = await response.json();
+            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text.trim();
             
             // Parse the response
-            const resultMatch = response.match(/RESULT:\s*(win|lose|tie)/i);
-            const explanationMatch = response.match(/EXPLANATION:\s*(.+)$/is);
+            const resultMatch = generatedText.match(/RESULT:\s*(win|lose|tie)/i);
+            const explanationMatch = generatedText.match(/EXPLANATION:\s*(.+)$/is);
             
             if (resultMatch && explanationMatch) {
                 const battleResult = resultMatch[1].toLowerCase();
