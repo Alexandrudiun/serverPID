@@ -464,30 +464,19 @@ router.post('/generate-words', async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    const prompt = `
-      You're the System in a competitive game called "Words of Power".
-      There are 3 types of words:
-      - Low-cost Risky Word
-      - Medium-cost Balanced Word
-      - High-cost Powerful Word
+    const prompt = `You're the System in a game called "Words of Power".
+Your task is to generate 3 unique, powerful system words for 3 consecutive battle rounds.
 
-      Your goal is to:
-      1. Choose a word that players must try to defeat
-      2. Generate 3 suggested words that players can choose from: one risky, one balanced, one powerful
-      3. Assign a cost to each (1, 3, and 7 points)
+Each system word should represent an object, force, or concept that can be challenged creatively.
 
-      Format the result as JSON:
-      {
-        "system_word": "Oblivion",
-        "suggested_words": [
-          { "word": "Flash", "type": "risky", "cost": 1 },
-          { "word": "Barrier", "type": "balanced", "cost": 3 },
-          { "word": "Judgement", "type": "powerful", "cost": 7 }
-        ]
-      }
-      
-      IMPORTANT: Return ONLY valid JSON with no extra text, markdown formatting or explanation.
-    `;
+Respond in the following JSON format:
+{
+  "rounds": [
+    { "round": 1, "system_word": "Shield" },
+    { "round": 2, "system_word": "Fire" },
+    { "round": 3, "system_word": "Storm" }
+  ]
+}`;
 
     // Create request payload
     const payload = {
